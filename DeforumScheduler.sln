@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeforumScheduler", "DeforumScheduler\DeforumScheduler.csproj", "{A23AEE36-0B12-4483-8666-19773EEB8BFC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeforumScheduler.Tests", "DeforumScheduler.Tests\DeforumScheduler.Tests.csproj", "{CD2D61DA-DA3C-46A6-9BF4-E46E039F33EF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A23AEE36-0B12-4483-8666-19773EEB8BFC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A23AEE36-0B12-4483-8666-19773EEB8BFC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A23AEE36-0B12-4483-8666-19773EEB8BFC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A23AEE36-0B12-4483-8666-19773EEB8BFC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CD2D61DA-DA3C-46A6-9BF4-E46E039F33EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD2D61DA-DA3C-46A6-9BF4-E46E039F33EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD2D61DA-DA3C-46A6-9BF4-E46E039F33EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD2D61DA-DA3C-46A6-9BF4-E46E039F33EF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
