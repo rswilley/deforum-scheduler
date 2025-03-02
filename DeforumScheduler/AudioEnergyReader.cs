@@ -1,69 +1,70 @@
 ﻿using System.Text;
-using NAudio.Dsp;
 using NAudio.Wave;
 
 namespace DeforumScheduler;
 
 public interface IAudioEnergyReader
 {
-    IEnumerable<Energy> ComputeShortTimeEnergy(string filePath, bool saveToFile);
+    Dictionary<int, double> ComputeEnergyPerFrame(string filePath, int fps, bool saveToFile = false);
 }
 
 public class AudioEnergyReader : IAudioEnergyReader
 {
-    public IEnumerable<Energy> ComputeShortTimeEnergy(string filePath, bool saveToFile = false)
+    public Dictionary<int, double> ComputeEnergyPerFrame(string filePath, int fps, bool saveToFile = false)
     {
-        using var reader = new AudioFileReader(filePath);
-        
-        int sampleRate = reader.WaveFormat.SampleRate;
-        int bufferSize = 1024; // Small buffer for better transient detection
-        float[] buffer = new float[bufferSize];
-        BiQuadFilter lowPassFilter = BiQuadFilter.LowPassFilter(sampleRate, 150, 1); // 150 Hz cutoff
-
-        int bytesRead;
-        double time = 0;
-
-        var results = new List<Energy>();
-        var csv = new StringBuilder();
-        
-        while ((bytesRead = reader.Read(buffer, 0, buffer.Length)) > 0)
+        Dictionary<int, double> results = new Dictionary<int, double>();
+        StringBuilder csv = null!;
+        if (saveToFile)
         {
-            // Apply the low-pass filter
-            for (int i = 0; i < bytesRead; i++)
+            csv = new StringBuilder();
+        }
+        
+        using var reader = new AudioFileReader(filePath);
+        int sampleRate = reader.WaveFormat.SampleRate;  // e.g., 44100 Hz
+        int channels = reader.WaveFormat.Channels;      // Stereo or mono
+        double durationSeconds = reader.TotalTime.TotalSeconds;
+        int totalFrames = (int)(durationSeconds * fps); // Total frames in video
+
+        // Read entire audio file into buffer
+        int totalSamples = (int)(sampleRate * durationSeconds) * channels;
+        float[] buffer = new float[totalSamples];
+        int samplesRead = reader.Read(buffer, 0, buffer.Length);
+
+        // Convert to mono if needed
+        float[] monoSamples = new float[samplesRead / channels];
+        for (int i = 0; i < monoSamples.Length; i++)
+        {
+            monoSamples[i] = buffer[i * channels]; // Take only the left channel
+        }
+
+        int samplesPerFrame = sampleRate / fps; // Samples corresponding to 1 video frame
+        
+        for (int frame = 0; frame < totalFrames; frame++)
+        {
+            double energy = 0;
+            int startSample = frame * samplesPerFrame;
+
+            // Sum squared values within the frame's sample range
+            for (int i = 0; i < samplesPerFrame && (startSample + i) < monoSamples.Length; i++)
             {
-                buffer[i] = lowPassFilter.Transform(buffer[i]);
+                float sample = monoSamples[startSample + i];
+                energy += sample * sample;
             }
 
-            // Compute Short-Time Energy (STE)
-            double energy = buffer.Take(bytesRead).Select(x => x * x).Sum();
-            var timeInSeconds = Convert.ToDouble($"{time:F3}");
-
-            var item = new Energy
-            {
-                TimeInSeconds = timeInSeconds,
-                Value = energy
-            };
-            results.Add(item);
+            // Store energy value for this frame
+            results.Add(frame, energy);
             
             if (saveToFile)
             {
-                csv.AppendLine($"{item.TimeInSeconds},{item.Value}");
+                csv.AppendLine($"{frame},{energy}");
             }
-
-            time += (double)bufferSize / sampleRate;
         }
-
+        
         if (saveToFile)
         {
-            File.WriteAllText("output.csv", csv.ToString());
+            File.WriteAllText("frames.csv", csv.ToString());
         }
 
         return results;
     }
-}
-
-public class Energy
-{
-    public double TimeInSeconds { get; init; }
-    public double Value { get; init; }
 }

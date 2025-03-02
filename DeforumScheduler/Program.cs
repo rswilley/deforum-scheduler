@@ -2,8 +2,8 @@
 
 var energyReader = new AudioEnergyReader();
 var shortTimeEnergy =
-    energyReader.ComputeShortTimeEnergy(
-        "C:\\Users\\rober\\Music\\StemRoller\\JNTN - Unscathed (Original Mix)\\drums.wav");
+    energyReader.ComputeEnergyPerFrame(
+        "C:\\Users\\rober\\Music\\StemRoller\\JNTN - Unscathed (Original Mix)\\drums.wav", 12);
 
 int fps = 12; // Frames per second
 int bpm = 128; // Beats per minute
