@@ -21,11 +21,18 @@ public class KickDrumDetector : IKickDrumDetector
             var maxRange = i + 1;
             
             var energyInRange = energyList.Where(e => e.TimeInSeconds >= minRange && e.TimeInSeconds <= maxRange).ToList();
-            var kicksInRange = GetAdaptiveRangeThreshold(energyInRange);
+            var kicksInRange = energyInRange.OrderByDescending(e => e.Value).Take(beatsPerSecond);
 
-            //kicks.AddRange(kicksInRange.OrderBy(k => k.TimeInSeconds));
+            kicks.AddRange(kicksInRange.OrderBy(k => k.TimeInSeconds).Select(k => new Frame
+            {
+                FrameIndex = (int)(k.TimeInSeconds * fps),
+                Timestamp = TimeSpan.FromSeconds(k.TimeInSeconds),
+                Value = k.Value
+            }));
         }
 
+        //TODO: 1) if two kicks side by side (frame 11, 12) take the higher
+        //      2) dedupe frames
         return kicks;
     }
 
@@ -41,7 +48,7 @@ public class KickDrumDetector : IKickDrumDetector
 
 public class Frame
 {
-    public int Index { get; init; }
+    public double FrameIndex { get; init; }
     public TimeSpan Timestamp { get; init; }
     public double Value { get; init; }
 }
