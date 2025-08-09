@@ -15,7 +15,7 @@ public class BeatDetectorTests
 
     private static Dictionary<int, double> LoadTestTrack()
     {
-        var lines = File.ReadAllLines(Path.Combine("TestData", "Track1.csv"));
+        var lines = File.ReadAllLines(Path.Combine("TestData", "Track1", "drums-frames.csv"));
 
         var results = new Dictionary<int, double>();
         foreach (var line in lines)

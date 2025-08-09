@@ -12,7 +12,6 @@ public class BeatDetector : IBeatDetector
         var beats = new Dictionary<int, Beat>();
         var peaks = DetectPeaks(frames);
         
-        // TODO: iterate through bars instead of seconds to determine, breakdowns, buildups, etc? 
         for (double i = 0; i < frames.Count; i += fps)
         {
             var minFrame = i;

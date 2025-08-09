@@ -1,68 +1,61 @@
 ﻿using DeforumScheduler;
 
+const int fps = 12; // Frames per second
+
 var energyReader = new AudioEnergyReader();
-var shortTimeEnergy =
-    energyReader.ComputeEnergyPerFrame(
-        "C:\\Users\\rober\\Music\\StemRoller\\JNTN - Unscathed (Original Mix)\\drums.wav", 12);
-
-int fps = 12; // Frames per second
-int bpm = 128; // Beats per minute
-double secondsPerBeat = 60.0 / bpm; // Time per beat in seconds
-double secondsPerBar = 240.0 / bpm;
-
-double framesPerBeat = secondsPerBeat * fps; // Frames per beat
-
-var track = new Track(fps);
-
-double onBeatValue = 0.55;
-double offBeatValue = 0.65;
-
-//var kickDrumDetector = new KickDrumDetector();
-
-// foreach (var section in track.Sections)
-// {
-//     for (int frame = section.StartFrame; frame < section.EndFrame; frame++)
-//     {
-//         double timeInSeconds = (double)frame / fps;
-//         double modTime;
-//         
-//         if (section.Type == SectionType.Breakdown)
-//         {
-//             modTime = timeInSeconds % secondsPerBar;
-//         }
-//         else
-//         {
-//             modTime = timeInSeconds % secondsPerBeat;
-//         }
-//
-//         // Check if the frame is close to a beat time
-//         double frameValue = (modTime < (1.0 / fps)) ? onBeatValue : offBeatValue;
-//
-//         Console.WriteLine($"{frame}: ({frameValue}),");
-//     }
-// }
-
-// foreach (var section in track.Sections)
-// {
-//     if (section.Type == SectionType.Breakdown)
-//     { 
-//         Console.WriteLine($"{section.StartFrame}: ((-0.10 * cos((128 / 240 * 3.141 * (t + 0) / 12))**10 + 0.65)),");
-//     } else if (section.Type is SectionType.Intro or SectionType.Chorus)
-//     {
-//         Console.WriteLine($"{section.StartFrame}: ((-0.10 * cos((128 / 60 * 3.141 * (t + 0) / 12))**10 + 0.65)),");
-//     }
-//     else if (section.Type == SectionType.NewTrack)
-//     { 
-//         Console.WriteLine($"{section.StartFrame - 2}: (0.65),");
-//         Console.WriteLine($"{section.StartFrame - 1}: (0.25),");
-//         Console.WriteLine($"{section.StartFrame}: ((-0.10 * cos((128 / 60 * 3.141 * (t + 0) / 12))**10 + 0.65)),");
-//     }
-// }
-
-int totalFrames = (track.DurationInSeconds + 1) * fps;
-Console.WriteLine(totalFrames);
-
-TimeSpan GetTime(Section section)
+var stemFiles = new Dictionary<StemType, string>
 {
-    return TimeSpan.Parse(section.Timestamp);
+    { StemType.Drums, @"C:\Users\rober\Music\JNTN - Unscathed (Original Mix)\drums.wav" },
+    { StemType.Bass, @"C:\Users\rober\Music\JNTN - Unscathed (Original Mix)\bass.wav" },
+    { StemType.Other, @"C:\Users\rober\Music\JNTN - Unscathed (Original Mix)\other.wav" },
+};
+
+var stemResults = new Dictionary<StemType, Dictionary<int, double>>();
+foreach (var file in stemFiles)
+{
+    var framesToEnergy = energyReader.ComputeEnergyPerFrame(file.Value, fps, "");
+    stemResults.Add(file.Key, framesToEnergy);
 }
+
+var kicksAndSnares = energyReader.ComputeFrequencyBandEnergies(stemFiles.Single(f => f.Key == StemType.Drums).Value, fps);
+var beats = new BeatDetector().DetectBeats(stemResults.Single(r => r.Key == StemType.Drums).Value, fps);
+var drums = stemResults.Single(r => r.Key == StemType.Drums).Value;
+var bass = stemResults.Single(r => r.Key == StemType.Bass).Value;
+var other = stemResults.Single(r => r.Key == StemType.Other).Value;
+
+const int automationChangeSeconds = 15;
+
+// var strengthAutomation = new StrengthAutomation(0.65);
+// var translationXAutomation = new TranslationXAutomation(0.04, multiplier);
+// var translationYAutomation = new TranslationYAutomation(0.06, multiplier);
+var translationZAutomation = new TranslationZAutomation(12, 1, 5, automationChangeSeconds);
+var rotation3DXAutomation = new Rotation3DXAutomation(12, 0.14, 1, automationChangeSeconds);
+var rotation3DYAutomation = new Rotation3DYAutomation(12, 0.16, 1, automationChangeSeconds);
+
+for (int frame = 0; frame < beats.Count; frame++)
+{
+    var beat = beats[frame];
+    //var drumValue = drums[0];
+    var snareValue = kicksAndSnares[frame].HighFreqEnergy;
+    var bassValue = bass[frame];
+    var otherValue = other[frame];
+
+    //strengthAutomation.AddValue(frame, beat.IsPeak ? 0.55 : 0.65, 1);
+    //translationXAutomation.AddValue(frame, otherValue, sign);
+    //translationYAutomation.AddValue(frame, otherValue, sign);
+    translationZAutomation.AddValue(frame, bassValue);
+    rotation3DXAutomation.AddValue(frame, snareValue);
+    rotation3DYAutomation.AddValue(frame, snareValue);
+}
+
+var tasks = new List<Task>
+{
+    //File.WriteAllTextAsync("strength-schedule.csv", strengthAutomation.ToCsv()),
+    //File.WriteAllTextAsync("trans-x-schedule.csv", translationXAutomation.ToCsv()),
+    //File.WriteAllTextAsync("trans-y-schedule.csv", translationYAutomation.ToCsv()),
+    File.WriteAllTextAsync("trans-z-schedule.txt", translationZAutomation.ToString()),
+    File.WriteAllTextAsync("trans-3dx-schedule.txt", rotation3DXAutomation.ToString()),
+    File.WriteAllTextAsync("trans-3dy-schedule.txt", rotation3DYAutomation.ToString()),
+};
+
+await Task.WhenAll(tasks);

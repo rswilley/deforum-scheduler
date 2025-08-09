@@ -26,7 +26,13 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Update="TestData\Track1.csv">
+      <None Update="TestData\Track1\bass-frames.csv">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="TestData\Track1\drums-frames.csv">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="TestData\Track1\other-frames.csv">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
     </ItemGroup>
