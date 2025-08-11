@@ -2,99 +2,45 @@
 
 namespace DeforumScheduler;
 
-// public class StrengthAutomation : AutomationBase
-// {
-//     public StrengthAutomation(double defaultValue)
-//     {
-//         DefaultValue = defaultValue;
-//         Multiplier = 0;
-//     }
-// }
-
-/// <summary>
-/// 2D & 3D operator to move canvas left/right in pixels per frame
-/// </summary>
-// public class TranslationXAutomation : AutomationBase
-// {
-//     public TranslationXAutomation(double defaultValue, double multiplier)
-//     {
-//         DefaultValue = defaultValue;
-//         Multiplier = multiplier;
-//     }
-// }
-
-/// <summary>
-/// 2D & 3D operator to move canvas up/down in pixels per frame
-/// </summary>
-// public class TranslationYAutomation : AutomationBase
-// {
-//     public TranslationYAutomation(double defaultValue, double multiplier)
-//     {
-//         DefaultValue = defaultValue;
-//         Multiplier = multiplier;
-//     }
-// }
-
-/// <summary>
-/// 3D operator to move canvas towards/away from view [speed set by FOV]
-/// </summary>
-public class TranslationZAutomation : AutomationBase
+public class StrengthAutomation() : AutomationBase
 {
-    public TranslationZAutomation(int fps, double minValue, double maxValue, int automationChangeInSeconds)
+    public void AddValue(int frame, double value)
     {
-        Fps = fps;
-        MinValue = minValue;
-        MaxValue = maxValue;
-        AutomationChangeInSeconds = automationChangeInSeconds;
+        Values.Add(frame, value);
     }
+    
+    public override string ToString()
+    {
+        var result = new StringBuilder();
+        foreach (var value in Values)
+        {
+            result.AppendLine($"{value.Key}:({value.Value}),");
+        }
+
+        return result.ToString().TrimEnd(',');
+    }
+    
+    private Dictionary<int, double> Values { get; } = new();
 }
 
-/// <summary>
-/// 3D operator to tilt canvas up/down in degrees per frame (+ = up, - = down)
-/// </summary>
-public class Rotation3DXAutomation : AutomationBase
+public class CameraAutomation : AutomationBase
 {
-    public Rotation3DXAutomation(int fps, double minValue, double maxValue, int automationChangeInSeconds)
+    private readonly int _bpm;
+    private readonly int _fps;
+    private readonly double _minValue;
+    private readonly double _maxValue;
+    private readonly int _automationChangeInBars;
+    private readonly Dictionary<int, Beat> _beats;
+
+    public CameraAutomation(int bpm, int fps, double minValue, double maxValue, int automationChangeInBars, Dictionary<int, Beat> beats)
     {
-        Fps = fps;
-        MinValue = minValue;
-        MaxValue = maxValue;
-        AutomationChangeInSeconds = automationChangeInSeconds;
+        _bpm = bpm;
+        _fps = fps;
+        _minValue = minValue;
+        _maxValue = maxValue;
+        _automationChangeInBars = automationChangeInBars;
+        _beats = beats;
     }
-}
-
-/// <summary>
-/// 3D operator to tilt canvas left/right in degrees per frame (+ = right, - = left)
-/// </summary>
-public class Rotation3DYAutomation : AutomationBase
-{
-    public Rotation3DYAutomation(int fps, double minValue, double maxValue, int automationChangeInSeconds)
-    {
-        Fps = fps;
-        MinValue = minValue;
-        MaxValue = maxValue;
-        AutomationChangeInSeconds = automationChangeInSeconds;
-    }
-}
-
-/// <summary>
-/// 3D operator to roll canvas clockwise/anticlockwise (+ = left, - = right)
-/// </summary>
-// public class Rotation3DZAutomation : AutomationBase
-// {
-//     public Rotation3DZAutomation(double defaultValue, double multiplier)
-//     {
-//         DefaultValue = defaultValue;
-//         Multiplier = multiplier;
-//     }
-// }
-
-public abstract class AutomationBase
-{
-    public int Fps { get; init; }
-    protected double MinValue { get; init; }
-    protected double MaxValue { get; init; }
-    protected int AutomationChangeInSeconds { get; init; }
     
     public void AddValue(int frame, double value)
     {
@@ -105,18 +51,20 @@ public abstract class AutomationBase
     public override string ToString()
     {
         var result = new StringBuilder();
-        var normalizedValues = Normalize(Values, MinValue, MaxValue);
+        var normalizedValues = Normalize(Values, _minValue, _maxValue);
+        var smoothValues = SmoothValues(normalizedValues, 5);
         
-        var automationChangeFrame = AutomationChangeInSeconds * Fps;
+        var initialAutomationChangeFrame = GetFrameNumberForBars(_bpm, _automationChangeInBars, _fps);
+        var automationChangeFrame = initialAutomationChangeFrame;
         var movementType = GetRandomMovementType();
 
         var resultValues = new Dictionary<int, double>();
-        for (int frame = 0; frame < normalizedValues.Count; frame++)
+        for (int frame = 0; frame < smoothValues.Count; frame++)
         {
-            var movementValue = normalizedValues[frame];
+            var movementValue = smoothValues[frame];
             if (frame > automationChangeFrame)
             {
-                automationChangeFrame += AutomationChangeInSeconds * Fps;
+                automationChangeFrame += initialAutomationChangeFrame;
                 movementType = GetNextMovementType(movementType);
             }
             
@@ -129,6 +77,7 @@ public abstract class AutomationBase
                     movementValue *= -1;
                     break;
                 case MovementType.None:
+                    movementValue = 0;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -148,7 +97,7 @@ public abstract class AutomationBase
     public string ToCsv()
     {
         var result = new StringBuilder();
-        var normalizedValues = Normalize(Values, MinValue, MaxValue);
+        var normalizedValues = Normalize(Values, _minValue, _maxValue);
         
         foreach (var value in normalizedValues)
         {
@@ -157,8 +106,8 @@ public abstract class AutomationBase
         return result.ToString();
     }
     
-    private Dictionary<int, double> Values { get; init; } = new();
-    private Random Random { get; init; } = new();
+    private Dictionary<int, double> Values { get; } = new();
+    private Random Random { get; } = new();
     
     private static Dictionary<int, double> Normalize(Dictionary<int, double> values, double lower, double upper)
     {
@@ -181,16 +130,48 @@ public abstract class AutomationBase
 
         return normalizedValues;
     }
+    
+    private static Dictionary<int, double> SmoothValues(Dictionary<int, double> framesWithValues, int windowSize)
+    {
+        var smoothedValues = new Dictionary<int, double>(framesWithValues.Values.Count);
+        for (int i = 0; i < framesWithValues.Values.Count; i++)
+        {
+            // Determine the window range for smoothing (avoid out-of-bound indices)
+            int start = Math.Max(i - windowSize / 2, 0);
+            int end = Math.Min(i + windowSize / 2, framesWithValues.Values.Count - 1);
+
+            // Get the subarray within the window range
+            double[] window = framesWithValues.Values.Skip(start).Take(end - start + 1).ToArray();
+            
+            // Calculate the average for this window
+            smoothedValues.Add(i, window.Average());
+        }
+        return smoothedValues;
+    }
 
     private MovementType GetRandomMovementType()
     {
-        var randomValue = Random.Next(0, 2);
-        return randomValue switch
+        if (Random.NextDouble() > 0.1) // 90% chance of movement
         {
-            0 => MovementType.Negative,
-            1 => MovementType.Positive,
-            _ => throw new ArgumentOutOfRangeException()
-        };
+            var randomValue = Random.Next(0, 2);
+            return randomValue switch
+            {
+                0 => MovementType.Negative,
+                1 => MovementType.Positive,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        }
+        else
+        {
+            var randomValue = Random.Next(0, 3);
+            return randomValue switch
+            {
+                0 => MovementType.Negative,
+                1 => MovementType.Positive,
+                2 => MovementType.None,
+                _ => throw new ArgumentOutOfRangeException()
+            };   
+        }
     }
     
     private MovementType GetNextMovementType(MovementType movementType)
@@ -201,5 +182,20 @@ public abstract class AutomationBase
             MovementType.Negative => MovementType.Positive,
             _ => GetRandomMovementType()
         };
+    }
+}
+
+public abstract class AutomationBase
+{
+    protected static int GetFrameNumberForBars(double bpm, double bars, double fps, int beatsPerBar = 4)
+    {
+        // Duration (seconds) for the requested bars
+        double seconds = bars * beatsPerBar * (60.0 / bpm);
+
+        // Convert seconds to frames
+        double frames = seconds * fps;
+
+        // Round to nearest frame
+        return (int)Math.Round(frames, MidpointRounding.AwayFromZero);
     }
 }
