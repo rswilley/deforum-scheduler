@@ -2,7 +2,7 @@
 
 namespace DeforumScheduler;
 
-public class StrengthAutomation() : AutomationBase
+public class StrengthAutomation
 {
     public void AddValue(int frame, double value)
     {
@@ -23,16 +23,16 @@ public class StrengthAutomation() : AutomationBase
     private Dictionary<int, double> Values { get; } = new();
 }
 
-public class CameraAutomation : AutomationBase
+public class CameraAutomation
 {
     private readonly int _bpm;
     private readonly int _fps;
     private readonly double _minValue;
     private readonly double _maxValue;
     private readonly int _automationChangeInBars;
-    private readonly Dictionary<int, Beat> _beats;
+    private readonly Dictionary<int, Sample> _beats;
 
-    public CameraAutomation(int bpm, int fps, double minValue, double maxValue, int automationChangeInBars, Dictionary<int, Beat> beats)
+    public CameraAutomation(int bpm, int fps, double minValue, double maxValue, int automationChangeInBars, Dictionary<int, Sample> beats)
     {
         _bpm = bpm;
         _fps = fps;
@@ -54,7 +54,7 @@ public class CameraAutomation : AutomationBase
         var normalizedValues = Normalize(Values, _minValue, _maxValue);
         var smoothValues = SmoothValues(normalizedValues, 5);
         
-        var initialAutomationChangeFrame = GetFrameNumberForBars(_bpm, _automationChangeInBars, _fps);
+        var initialAutomationChangeFrame = FrameResolver.GetFrameNumberForBars(_bpm, _automationChangeInBars, _fps);
         var automationChangeFrame = initialAutomationChangeFrame;
         var movementType = GetRandomMovementType();
 
@@ -182,20 +182,5 @@ public class CameraAutomation : AutomationBase
             MovementType.Negative => MovementType.Positive,
             _ => GetRandomMovementType()
         };
-    }
-}
-
-public abstract class AutomationBase
-{
-    protected static int GetFrameNumberForBars(double bpm, double bars, double fps, int beatsPerBar = 4)
-    {
-        // Duration (seconds) for the requested bars
-        double seconds = bars * beatsPerBar * (60.0 / bpm);
-
-        // Convert seconds to frames
-        double frames = seconds * fps;
-
-        // Round to nearest frame
-        return (int)Math.Round(frames, MidpointRounding.AwayFromZero);
     }
 }

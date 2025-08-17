@@ -2,16 +2,16 @@ using DeforumScheduler;
 
 namespace TestProject1;
 
-public class BeatDetectorTests
+public class PeakDetectorTests
 {
     [Fact]
     public void Test1()
     {
         var subject = GetSubject();
-        var beats = subject.DetectBeats(LoadTestTrack(), 12);
+        //var beats = subject.DetectBeats(LoadTestTrack(), 12);
     }
 
-    private IBeatDetector GetSubject() => new BeatDetector();
+    private IPeakDetector GetSubject() => new PeakDetector();
 
     private static Dictionary<int, double> LoadTestTrack()
     {

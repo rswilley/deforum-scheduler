@@ -19,26 +19,26 @@ foreach (var file in stemFiles)
 }
 
 var kicksAndSnares = energyReader.ComputeFrequencyBandEnergies(stemFiles.Single(f => f.Key == StemType.Drums).Value, fps);
-var beats = new BeatDetector().DetectBeats(stemResults.Single(r => r.Key == StemType.Drums).Value, fps);
+var samples = new PeakDetector().DetectPeaks(kicksAndSnares, bpm, fps);
 var bass = stemResults.Single(r => r.Key == StemType.Bass).Value;
 var other = stemResults.Single(r => r.Key == StemType.Other).Value;
 
 var strengthAutomation = new StrengthAutomation();
-var translationXAutomation = new CameraAutomation(bpm, fps, 0.04, 0.4, 8, beats);
-var translationYAutomation = new CameraAutomation(bpm, fps, 0.06, 0.6, 8, beats);
-var translationZAutomation = new CameraAutomation(bpm, fps, 1, 5, 32, beats);
-var rotation3DXAutomation = new CameraAutomation(bpm, fps, 0.14, 1.4, 16, beats);
-var rotation3DYAutomation = new CameraAutomation(bpm, fps, 0.16, 1.6, 16, beats);
+var translationXAutomation = new CameraAutomation(bpm, fps, 0.04, 0.4, 8, samples);
+var translationYAutomation = new CameraAutomation(bpm, fps, 0.06, 0.6, 8, samples);
+var translationZAutomation = new CameraAutomation(bpm, fps, 1, 5, 32, samples);
+var rotation3DXAutomation = new CameraAutomation(bpm, fps, 0.14, 1.4, 16, samples);
+var rotation3DYAutomation = new CameraAutomation(bpm, fps, 0.16, 1.6, 16, samples);
 
-for (int frame = 0; frame < beats.Count; frame++)
+for (int frame = 0; frame < samples.Count; frame++)
 {
-    var beat = beats[frame];
+    var sample = samples[frame];
     var kickValue = kicksAndSnares[frame].LowFreqEnergy;
     var snareValue = kicksAndSnares[frame].HighFreqEnergy;
     var bassValue = bass[frame];
     var otherValue = other[frame];
 
-    strengthAutomation.AddValue(frame, beat.IsPeak ? 0.55 : 0.65);
+    strengthAutomation.AddValue(frame, sample is { IsKickPeak: true, IsSnarePeak: true } ? 0.55 : 0.65);
     translationXAutomation.AddValue(frame, otherValue);
     translationYAutomation.AddValue(frame, otherValue);
     translationZAutomation.AddValue(frame, bassValue);

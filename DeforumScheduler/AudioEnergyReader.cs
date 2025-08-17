@@ -5,17 +5,17 @@ namespace DeforumScheduler;
 
 public interface IAudioEnergyReader
 {
-    Dictionary<int, double> ComputeEnergyPerFrame(string filePath, int fps, string fileName = "");
-    Dictionary<int, (double LowFreqEnergy, double HighFreqEnergy)> ComputeFrequencyBandEnergies(string filePath, int fps);
+    Dictionary<int, double> ComputeEnergyPerFrame(string filePath, int fps, string csvFileName = "");
+    Dictionary<int, (double LowFreqEnergy, double HighFreqEnergy)> ComputeFrequencyBandEnergies(string filePath, int fps, string csvFileName = "");
 }
 
 public class AudioEnergyReader : IAudioEnergyReader
 {
-    public Dictionary<int, double> ComputeEnergyPerFrame(string filePath, int fps, string fileName = "")
+    public Dictionary<int, double> ComputeEnergyPerFrame(string filePath, int fps, string csvFileName = "")
     {
         Dictionary<int, double> results = new Dictionary<int, double>();
         StringBuilder csv = null!;
-        bool saveToFile = !string.IsNullOrEmpty(fileName);
+        bool saveToFile = !string.IsNullOrEmpty(csvFileName);
         if (saveToFile)
         {
             csv = new StringBuilder();
@@ -64,19 +64,28 @@ public class AudioEnergyReader : IAudioEnergyReader
         
         if (saveToFile)
         {
-            File.WriteAllText(fileName, csv.ToString());
+            File.WriteAllText(csvFileName, csv.ToString());
         }
 
         return results;
     }
     
     public Dictionary<int, (double LowFreqEnergy, double HighFreqEnergy)> ComputeFrequencyBandEnergies(
-        string filePath, int fps)
+        string filePath, int fps, string csvFileName = "")
     {
         const float lowPassCutoff = 150.0f;  // Typical kick drum frequencies are below 150 Hz
         const float highPassCutoff = 2000.0f;  // Typical snare frequencies are above 2000 Hz
     
         var results = new Dictionary<int, (double LowFreqEnergy, double HighFreqEnergy)>();
+        
+        StringBuilder lowFrequencyCsv = null!;
+        StringBuilder highFrequencyCsv = null!;
+        bool saveToFile = !string.IsNullOrEmpty(csvFileName);
+        if (saveToFile)
+        {
+            lowFrequencyCsv = new StringBuilder();
+            highFrequencyCsv = new StringBuilder();
+        }
         
         using var reader = new AudioFileReader(filePath);
         int sampleRate = reader.WaveFormat.SampleRate;
@@ -118,6 +127,18 @@ public class AudioEnergyReader : IAudioEnergyReader
             }
 
             results.Add(frame, (lowFreqEnergy, highFreqEnergy));
+            
+            if (saveToFile)
+            {
+                lowFrequencyCsv.AppendLine($"{frame},{lowFreqEnergy}");
+                highFrequencyCsv.AppendLine($"{frame},{highFreqEnergy}");
+            }
+        }
+        
+        if (saveToFile)
+        {
+            File.WriteAllText("low-frequency-" + csvFileName, lowFrequencyCsv.ToString());
+            File.WriteAllText("high-frequency-" + csvFileName, highFrequencyCsv.ToString());
         }
 
         return results;

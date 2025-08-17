@@ -1,62 +1,101 @@
 ﻿namespace DeforumScheduler;
 
-public interface IBeatDetector
+public interface IPeakDetector
 {
-    Dictionary<int, Beat> DetectBeats(Dictionary<int, double> frames, int fps);
+    Dictionary<int, Sample> DetectPeaks(Dictionary<int, (double LowFreqEnergy, double HighFreqEnergy)> framesWithEnergy, int bpm, int fps);
 }
 
-public class BeatDetector : IBeatDetector
+public class PeakDetector : IPeakDetector
 {
-    public Dictionary<int, Beat> DetectBeats(Dictionary<int, double> frames, int fps)
+    public Dictionary<int, Sample> DetectPeaks(Dictionary<int, (double LowFreqEnergy, double HighFreqEnergy)> framesWithEnergy, int bpm, int fps)
     {
-        var beats = new Dictionary<int, Beat>();
-        var peaks = DetectPeaks(frames);
+        var samples = new Dictionary<int, Sample>();
+        var kickSamples = framesWithEnergy.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.LowFreqEnergy);
+        var kickPeaks = DetectPeaks(kickSamples);
+        var drops = DetectDrops(kickPeaks);
+        var snarePeaks = DetectPeaks(framesWithEnergy.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.HighFreqEnergy));
         
-        for (double i = 0; i < frames.Count; i += fps)
+        for (int i = 0; i < framesWithEnergy.Count; i += fps)
         {
             var minFrame = i;
             var maxFrame = i + (fps - 1);
             
-            var framesInRange = frames.Where(e => e.Key >= minFrame && e.Key <= maxFrame).ToList();
+            var framesInRange = framesWithEnergy.Where(e => e.Key >= minFrame && e.Key <= maxFrame).ToList();
             foreach (var frame in framesInRange)
             {
-                beats.Add(frame.Key, new Beat
+                var lowFreqEnergy = framesWithEnergy[frame.Key].LowFreqEnergy;
+                var highFreqEnergy = framesWithEnergy[frame.Key].HighFreqEnergy;
+                
+                samples.Add(frame.Key, new Sample
                 {
-                    IsPeak = peaks.ContainsKey(frame.Key),
-                    Value = frame.Value
+                    KickValue = lowFreqEnergy,
+                    SnareValue = highFreqEnergy,
+                    IsKickPeak = kickPeaks.ContainsKey(frame.Key),
+                    IsSnarePeak = snarePeaks.ContainsKey(frame.Key),
+                    IsDrop = drops.ContainsKey(frame.Key)
                 });
             }
         }
         
-        return beats;
+        return samples;
     }
     
-    private static Dictionary<int, double> DetectPeaks(IReadOnlyDictionary<int, double> frames)
+    private static Dictionary<int, double> DetectPeaks(Dictionary<int, double> frames)
     {
+        var normalizedKicks = new Normalizer().Normalize(frames, 0, 1);
         var peaks = new Dictionary<int, double>();
 
         for (var i = 0; i < frames.Count - 1; i++)
         {
-            var currentValue = frames[i];
+            var currentValue = normalizedKicks[i];
             var previousValue = 0.0;
             if (i != 0)
             {
-                previousValue = frames[i - 1];
+                previousValue = normalizedKicks[i - 1];
             }
-            var nextValue = frames[i + 1];
+            var nextValue = normalizedKicks[i + 1];
             
             if (currentValue > previousValue && currentValue > nextValue)
             {
-                peaks.Add(i, frames[i]);
+                peaks.Add(i, normalizedKicks[i]);
             }
         }
         
         return peaks;
     }
+
+    private static Dictionary<int, double> DetectDrops(Dictionary<int, double> kickPeaks)
+    {
+        var drops = new Dictionary<int, double>();
+
+        var iteration = 0;
+        var currentValue = 0.0;
+        
+        foreach (var peak in kickPeaks)
+        {
+            var previousValue = iteration == 0 
+                ? 0.0 
+                : currentValue;
+
+            currentValue = peak.Value;
+
+            if (previousValue >= 0.05 && currentValue >= previousValue * 3)
+            {
+                drops.Add(peak.Key, peak.Value);
+            }
+            
+            ++iteration;
+        }
+
+        return drops;
+    }
 }
 
-public class Beat
+public class Sample
 {
-    public double Value { get; init; }
-    public bool IsPeak { get; init; }
+    public double KickValue { get; init; }
+    public double SnareValue { get; init; }
+    public bool IsKickPeak { get; init; }
+    public bool IsSnarePeak { get; init; }
+    public bool IsDrop { get; init; }
 }
