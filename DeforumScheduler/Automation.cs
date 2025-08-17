@@ -52,7 +52,12 @@ public class CameraAutomation
     {
         var result = new StringBuilder();
         var normalizedValues = Normalize(Values, _minValue, _maxValue);
-        var smoothValues = SmoothValues(normalizedValues, 5);
+        var windowSize = FrameResolver.GetFrameNumberForBars(_bpm, 0.25, _fps);
+        var smoothValues = SmoothValues(normalizedValues, windowSize);
+        
+        var drops = _beats.Where(b => b.Value.IsDrop).Select(drop => drop.Value).ToList();
+        var dropIndex = 0;
+        var seekDrop = drops[dropIndex];
         
         var initialAutomationChangeFrame = FrameResolver.GetFrameNumberForBars(_bpm, _automationChangeInBars, _fps);
         var automationChangeFrame = initialAutomationChangeFrame;
@@ -62,7 +67,15 @@ public class CameraAutomation
         for (int frame = 0; frame < smoothValues.Count; frame++)
         {
             var movementValue = smoothValues[frame];
-            if (frame > automationChangeFrame)
+            if (frame == seekDrop?.Frame)
+            {
+                // reset automation change frame if we find a drop
+                automationChangeFrame = seekDrop.Frame + initialAutomationChangeFrame;
+                movementType = GetNextMovementType(movementType);
+                ++dropIndex;
+                seekDrop = drops.ElementAtOrDefault(dropIndex);
+
+            } else if (frame > automationChangeFrame)
             {
                 automationChangeFrame += initialAutomationChangeFrame;
                 movementType = GetNextMovementType(movementType);

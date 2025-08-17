@@ -29,6 +29,7 @@ public class SampleResolver : ISampleResolver
                 
                 samples.Add(frame.Key, new Sample
                 {
+                    Frame = frame.Key,
                     KickValue = lowFreqEnergy,
                     SnareValue = highFreqEnergy,
                     IsKickPeak = kickPeaks.ContainsKey(frame.Key),
@@ -44,6 +45,7 @@ public class SampleResolver : ISampleResolver
 
 public class Sample
 {
+    public int Frame { get; init; }
     public double KickValue { get; init; }
     public double SnareValue { get; init; }
     public bool IsKickPeak { get; init; }

@@ -1,7 +1,7 @@
 ﻿using DeforumScheduler;
 
 const int fps = 12; // Frames per second
-const int bpm = 128; // Beats per minute
+const int bpm = 126; // Beats per minute
 
 var energyReader = new AudioEnergyReader();
 var stemFiles = new Dictionary<StemType, string>
@@ -38,7 +38,14 @@ for (int frame = 0; frame < samples.Count; frame++)
     var bassValue = bass[frame];
     var otherValue = other[frame];
 
-    strengthAutomation.AddValue(frame, sample is { IsKickPeak: true, IsSnarePeak: true } ? 0.55 : 0.65);
+    if (sample.IsDrop)
+    {
+        strengthAutomation.AddValue(frame, 0.45);
+    }
+    else
+    {
+        strengthAutomation.AddValue(frame, sample is { IsKickPeak: true, IsSnarePeak: true } ? 0.55 : 0.65);
+    }
     translationXAutomation.AddValue(frame, otherValue);
     translationYAutomation.AddValue(frame, otherValue);
     translationZAutomation.AddValue(frame, bassValue);
