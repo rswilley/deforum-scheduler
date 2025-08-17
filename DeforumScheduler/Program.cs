@@ -19,7 +19,7 @@ foreach (var file in stemFiles)
 }
 
 var kicksAndSnares = energyReader.ComputeFrequencyBandEnergies(stemFiles.Single(f => f.Key == StemType.Drums).Value, fps);
-var samples = new PeakDetector().DetectPeaks(kicksAndSnares, bpm, fps);
+var samples = new SampleResolver().ProcessFrames(kicksAndSnares, bpm, fps);
 var bass = stemResults.Single(r => r.Key == StemType.Bass).Value;
 var other = stemResults.Single(r => r.Key == StemType.Other).Value;
 
