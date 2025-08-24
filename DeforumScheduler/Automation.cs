@@ -2,11 +2,18 @@
 
 namespace DeforumScheduler;
 
-public class StrengthAutomation
+public class StrengthAutomation(double minValue, double maxValue, double dropValue)
 {
-    public void AddValue(int frame, double value)
+    public void AddValue(int frame, Sample sample)
     {
-        Values.Add(frame, value);
+        if (frame == 0)
+        {
+            Values.Add(frame, maxValue);
+            return;
+        }
+        
+        var value = GetValue(sample);
+        Values.TryAdd(frame, value);
     }
     
     public override string ToString()
@@ -21,6 +28,24 @@ public class StrengthAutomation
     }
     
     private Dictionary<int, double> Values { get; } = new();
+
+    private double GetValue(Sample sample)
+    {
+        double value;
+        if (sample.IsDrop)
+        {
+            value = dropValue;
+        } else if (sample.IsKickPeak)
+        {
+            value = minValue;
+        }
+        else
+        {
+            value = maxValue;   
+        }
+
+        return value;
+    }
 }
 
 public class CameraAutomation
@@ -51,9 +76,9 @@ public class CameraAutomation
     public override string ToString()
     {
         var result = new StringBuilder();
-        var normalizedValues = Normalize(Values, _minValue, _maxValue);
+        var normalizedValues = new Normalizer().Normalize(Values, _minValue, _maxValue);
         var windowSize = FrameResolver.GetFrameNumberForBars(_bpm, 0.25, _fps);
-        var smoothValues = SmoothValues(normalizedValues, windowSize);
+        var smoothValues = new Smoother().SmoothValues(normalizedValues, windowSize);
         
         var drops = _beats.Where(b => b.Value.IsDrop).Select(drop => drop.Value).ToList();
         var dropIndex = 0;
@@ -110,7 +135,7 @@ public class CameraAutomation
     public string ToCsv()
     {
         var result = new StringBuilder();
-        var normalizedValues = Normalize(Values, _minValue, _maxValue);
+        var normalizedValues = new Normalizer().Normalize(Values, _minValue, _maxValue);
         
         foreach (var value in normalizedValues)
         {
@@ -121,46 +146,6 @@ public class CameraAutomation
     
     private Dictionary<int, double> Values { get; } = new();
     private Random Random { get; } = new();
-    
-    private static Dictionary<int, double> Normalize(Dictionary<int, double> values, double lower, double upper)
-    {
-        double min = double.MaxValue;
-        double max = double.MinValue;
-
-        // Find the min and max values in the array
-        foreach (var item in values)
-        {
-            if (item.Value < min) min = item.Value;
-            if (item.Value > max) max = item.Value;
-        }
-
-        // Normalize the values
-        var normalizedValues = new Dictionary<int, double>(values.Count);
-        for (int i = 0; i < values.Count; i++)
-        {
-            normalizedValues[i] = Math.Round(lower + ((values[i] - min) / (max - min)) * (upper - lower), 2);
-        }
-
-        return normalizedValues;
-    }
-    
-    private static Dictionary<int, double> SmoothValues(Dictionary<int, double> framesWithValues, int windowSize)
-    {
-        var smoothedValues = new Dictionary<int, double>(framesWithValues.Values.Count);
-        for (int i = 0; i < framesWithValues.Values.Count; i++)
-        {
-            // Determine the window range for smoothing (avoid out-of-bound indices)
-            int start = Math.Max(i - windowSize / 2, 0);
-            int end = Math.Min(i + windowSize / 2, framesWithValues.Values.Count - 1);
-
-            // Get the subarray within the window range
-            double[] window = framesWithValues.Values.Skip(start).Take(end - start + 1).ToArray();
-            
-            // Calculate the average for this window
-            smoothedValues.Add(i, window.Average());
-        }
-        return smoothedValues;
-    }
 
     private MovementType GetRandomMovementType()
     {

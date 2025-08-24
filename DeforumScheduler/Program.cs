@@ -1,7 +1,7 @@
 ﻿using DeforumScheduler;
 
 const int fps = 12; // Frames per second
-const int bpm = 126; // Beats per minute
+const int bpm = 128; // Beats per minute
 
 var energyReader = new AudioEnergyReader();
 var stemFiles = new Dictionary<StemType, string>
@@ -9,6 +9,7 @@ var stemFiles = new Dictionary<StemType, string>
     { StemType.Drums, @"C:\Users\rober\Music\JNTN - Unscathed (Original Mix)\drums.wav" },
     { StemType.Bass, @"C:\Users\rober\Music\JNTN - Unscathed (Original Mix)\bass.wav" },
     { StemType.Other, @"C:\Users\rober\Music\JNTN - Unscathed (Original Mix)\other.wav" },
+    { StemType.Vocals, @"C:\Users\rober\Music\JNTN - Unscathed (Original Mix)\vocals.wav" },
 };
 
 var stemResults = new Dictionary<StemType, Dictionary<int, double>>();
@@ -22,13 +23,15 @@ var kicksAndSnares = energyReader.ComputeFrequencyBandEnergies(stemFiles.Single(
 var samples = new SampleResolver().ProcessFrames(kicksAndSnares, bpm, fps);
 var bass = stemResults.Single(r => r.Key == StemType.Bass).Value;
 var other = stemResults.Single(r => r.Key == StemType.Other).Value;
+var vocals = stemResults.Single(r => r.Key == StemType.Vocals).Value;
 
-var strengthAutomation = new StrengthAutomation();
-var translationXAutomation = new CameraAutomation(bpm, fps, 0.04, 0.4, 8, samples);
-var translationYAutomation = new CameraAutomation(bpm, fps, 0.06, 0.6, 8, samples);
+var strengthAutomation = new StrengthAutomation(0.55, 0.65, 0.45);
+var translationXAutomation = new CameraAutomation(bpm, fps, 0, 0.4, 8, samples);
+var translationYAutomation = new CameraAutomation(bpm, fps, 0, 0.6, 8, samples);
 var translationZAutomation = new CameraAutomation(bpm, fps, 1, 5, 32, samples);
 var rotation3DXAutomation = new CameraAutomation(bpm, fps, 0.14, 1.4, 16, samples);
 var rotation3DYAutomation = new CameraAutomation(bpm, fps, 0.16, 1.6, 16, samples);
+var rotation3DZAutomation = new CameraAutomation(bpm, fps, 0, 0.6, 16, samples);
 
 for (int frame = 0; frame < samples.Count; frame++)
 {
@@ -37,20 +40,15 @@ for (int frame = 0; frame < samples.Count; frame++)
     var snareValue = kicksAndSnares[frame].HighFreqEnergy;
     var bassValue = bass[frame];
     var otherValue = other[frame];
+    var vocalValue = vocals[frame];
 
-    if (sample.IsDrop)
-    {
-        strengthAutomation.AddValue(frame, 0.45);
-    }
-    else
-    {
-        strengthAutomation.AddValue(frame, sample is { IsKickPeak: true, IsSnarePeak: true } ? 0.55 : 0.65);
-    }
-    translationXAutomation.AddValue(frame, otherValue);
-    translationYAutomation.AddValue(frame, otherValue);
+    strengthAutomation.AddValue(frame, sample);
+    translationXAutomation.AddValue(frame, vocalValue);
+    translationYAutomation.AddValue(frame, vocalValue);
     translationZAutomation.AddValue(frame, bassValue);
     rotation3DXAutomation.AddValue(frame, kickValue);
     rotation3DYAutomation.AddValue(frame, snareValue);
+    rotation3DZAutomation.AddValue(frame, otherValue);
 }
 
 var tasks = new List<Task>
@@ -61,6 +59,7 @@ var tasks = new List<Task>
     File.WriteAllTextAsync("trans-z-schedule.txt", translationZAutomation.ToString()),
     File.WriteAllTextAsync("trans-3dx-schedule.txt", rotation3DXAutomation.ToString()),
     File.WriteAllTextAsync("trans-3dy-schedule.txt", rotation3DYAutomation.ToString()),
+    File.WriteAllTextAsync("trans-3dz-schedule.txt", rotation3DZAutomation.ToString()),
 };
 
 await Task.WhenAll(tasks);

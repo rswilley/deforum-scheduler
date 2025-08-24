@@ -4,5 +4,6 @@ public enum StemType
 {
     Drums,
     Bass,
-    Other
+    Other,
+    Vocals
 }
